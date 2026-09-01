@@ -11652,8 +11652,8 @@ namespace Microsoft.Data.SqlClient.Parser
 
                     if (md.metaType.IsLong && !md.metaType.IsPlp)
                     {
-                        WriteShort(md.tableName.Length, stateObj);
-                        WriteString(md.tableName, stateObj);
+                        WriteShort(md.TableName.Length, stateObj);
+                        WriteString(md.TableName, stateObj);
                     }
 
                     WriteCryptoMetadata(md, stateObj);
