@@ -48,6 +48,7 @@ namespace Microsoft.Data.Common.ConnectionString
         internal const string TransactionBinding = "Transaction Binding";
         internal const string TransparentNetworkIpResolution = "Transparent Network IP Resolution";
         internal const string TrustServerCertificate = "Trust Server Certificate";
+        internal const string TunnelUrl = "Tunnel URL";
         internal const string TypeSystemVersion = "Type System Version";
         internal const string UserId = "User ID";
         internal const string UserInstance = "User Instance";

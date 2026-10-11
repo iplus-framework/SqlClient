@@ -130,6 +130,7 @@ namespace Microsoft.Data.SqlClient
         private readonly string _userID;
         private readonly string _hostNameInCertificate;
         private readonly string _serverCertificate;
+        private readonly string _tunnelUrl;
         private readonly string _serverSPN;
         private readonly string _failoverPartnerSPN;
 
@@ -220,6 +221,8 @@ namespace Microsoft.Data.SqlClient
             AddKeywordToMap(DbConnectionStringKeywords.Replication);
             AddKeywordToMap(DbConnectionStringKeywords.ServerCertificate,
                             DbConnectionStringSynonyms.ServerCertificate);
+            AddKeywordToMap(DbConnectionStringKeywords.TunnelUrl,
+                            DbConnectionStringSynonyms.TunnelUrl);
             AddKeywordToMap(DbConnectionStringKeywords.ServerSpn,
                             DbConnectionStringSynonyms.ServerSpn);
             AddKeywordToMap(DbConnectionStringKeywords.TrustServerCertificate,
@@ -306,6 +309,7 @@ namespace Microsoft.Data.SqlClient
             _ipAddressPreference = ConvertValueToIPAddressPreference();
             _hostNameInCertificate = ConvertValueToString(DbConnectionStringKeywords.HostNameInCertificate, DbConnectionStringDefaults.HostNameInCertificate);
             _serverCertificate = ConvertValueToString(DbConnectionStringKeywords.ServerCertificate, DbConnectionStringDefaults.ServerCertificate);
+            _tunnelUrl = ConvertValueToString(DbConnectionStringKeywords.TunnelUrl, DbConnectionStringDefaults.TunnelUrl);
             _serverSPN = ConvertValueToString(DbConnectionStringKeywords.ServerSpn, DbConnectionStringDefaults.ServerSpn);
             _failoverPartnerSPN = ConvertValueToString(DbConnectionStringKeywords.FailoverPartnerSpn, DbConnectionStringDefaults.FailoverPartnerSpn);
 
@@ -623,6 +627,7 @@ namespace Microsoft.Data.SqlClient
             _serverSPN = connectionOptions._serverSPN;
             _failoverPartnerSPN = connectionOptions._failoverPartnerSPN;
             _hostNameInCertificate = connectionOptions._hostNameInCertificate;
+            _tunnelUrl = connectionOptions._tunnelUrl;
 #if NETFRAMEWORK
             _connectionReset = connectionOptions._connectionReset;
             _transparentNetworkIPResolution = connectionOptions._transparentNetworkIPResolution;
@@ -649,6 +654,7 @@ namespace Microsoft.Data.SqlClient
         internal string HostNameInCertificate => _hostNameInCertificate;
         internal bool TrustServerCertificate => _trustServerCertificate;
         public string ServerCertificate => _serverCertificate;
+        internal string TunnelUrl => _tunnelUrl;
         internal bool Enlist => _enlist;
         internal bool MARS => _mars;
         internal bool MultiSubnetFailover => _multiSubnetFailover;

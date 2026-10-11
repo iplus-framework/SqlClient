@@ -70,6 +70,7 @@ namespace Microsoft.Data.SqlClient
             IPAddressPreference,
             ServerSPN,
             FailoverPartnerSPN,
+            TunnelUrl,
             ContextConnection,
 #if NETFRAMEWORK
             ConnectionReset,
@@ -111,6 +112,7 @@ namespace Microsoft.Data.SqlClient
         private SqlConnectionEncryptOption _encrypt = DbConnectionStringDefaults.Encrypt;
         private string _hostNameInCertificate = DbConnectionStringDefaults.HostNameInCertificate;
         private string _serverCertificate = DbConnectionStringDefaults.ServerCertificate;
+        private string _tunnelUrl = DbConnectionStringDefaults.TunnelUrl;
         private bool _trustServerCertificate = DbConnectionStringDefaults.TrustServerCertificate;
         private bool _enlist = DbConnectionStringDefaults.Enlist;
         private bool _integratedSecurity = DbConnectionStringDefaults.IntegratedSecurity;
@@ -182,6 +184,7 @@ namespace Microsoft.Data.SqlClient
             validKeywords[(int)Keywords.IPAddressPreference] = DbConnectionStringKeywords.IpAddressPreference;
             validKeywords[(int)Keywords.ServerSPN] = DbConnectionStringKeywords.ServerSpn;
             validKeywords[(int)Keywords.FailoverPartnerSPN] = DbConnectionStringKeywords.FailoverPartnerSpn;
+            validKeywords[(int)Keywords.TunnelUrl] = DbConnectionStringKeywords.TunnelUrl;
             validKeywords[(int)Keywords.ContextConnection] = DbConnectionStringKeywords.ContextConnection;
 #if NETFRAMEWORK
             validKeywords[(int)Keywords.ConnectionReset] = DbConnectionStringKeywords.ConnectionReset;
@@ -240,6 +243,7 @@ namespace Microsoft.Data.SqlClient
                 { DbConnectionStringKeywords.IpAddressPreference, Keywords.IPAddressPreference },
                 { DbConnectionStringKeywords.ServerSpn, Keywords.ServerSPN },
                 { DbConnectionStringKeywords.FailoverPartnerSpn, Keywords.FailoverPartnerSPN },
+                { DbConnectionStringKeywords.TunnelUrl, Keywords.TunnelUrl },
                 { DbConnectionStringKeywords.ContextConnection, Keywords.ContextConnection },
 #if NETFRAMEWORK
                 { DbConnectionStringKeywords.ConnectionReset, Keywords.ConnectionReset },
@@ -254,6 +258,7 @@ namespace Microsoft.Data.SqlClient
                 { DbConnectionStringSynonyms.ApplicationIntent, Keywords.ApplicationIntent },
                 { DbConnectionStringSynonyms.ExtendedProperties, Keywords.AttachDBFilename },
                 { DbConnectionStringSynonyms.HostNameInCertificate, Keywords.HostNameInCertificate },
+                { DbConnectionStringSynonyms.TunnelUrl, Keywords.TunnelUrl },
                 { DbConnectionStringSynonyms.ServerCertificate, Keywords.ServerCertificate },
                 { DbConnectionStringSynonyms.InitialFileName, Keywords.AttachDBFilename },
                 { DbConnectionStringSynonyms.ConnectionTimeout, Keywords.ConnectTimeout },
@@ -403,6 +408,8 @@ namespace Microsoft.Data.SqlClient
                     return ServerSPN;
                 case Keywords.FailoverPartnerSPN:
                     return FailoverPartnerSPN;
+                case Keywords.TunnelUrl:
+                    return TunnelUrl;
                 case Keywords.ContextConnection:
                     return false;
 #if NETFRAMEWORK
@@ -560,6 +567,9 @@ namespace Microsoft.Data.SqlClient
                     break;
                 case Keywords.FailoverPartnerSPN:
                     _failoverPartnerSPN = DbConnectionStringDefaults.FailoverPartnerSpn;
+                    break;
+                case Keywords.TunnelUrl:
+                    _tunnelUrl = DbConnectionStringDefaults.TunnelUrl;
                     break;
                 case Keywords.ContextConnection:
                     break;
@@ -1033,6 +1043,9 @@ namespace Microsoft.Data.SqlClient
                         case Keywords.ServerCertificate:
                             ServerCertificate = ConvertToString(value);
                             break;
+                        case Keywords.TunnelUrl:
+                            TunnelUrl = ConvertToString(value);
+                            break;
                         case Keywords.TrustServerCertificate:
                             TrustServerCertificate = ConvertToBoolean(value);
                             break;
@@ -1416,6 +1429,21 @@ namespace Microsoft.Data.SqlClient
             {
                 SetValue(DbConnectionStringKeywords.FailoverPartnerSpn, value);
                 _failoverPartnerSPN = value;
+            }
+        }
+
+        /// <include file='../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlConnectionStringBuilder.xml' path='docs/members[@name="SqlConnectionStringBuilder"]/TunnelUrl/*' />
+        [DisplayName(DbConnectionStringKeywords.TunnelUrl)]
+        [ResCategory(nameof(Strings.DataCategory_Source))]
+        [ResDescription(nameof(Strings.DbConnectionString_TunnelUrl))]
+        [RefreshProperties(RefreshProperties.All)]
+        public string TunnelUrl
+        {
+            get => _tunnelUrl;
+            set
+            {
+                SetValue(DbConnectionStringKeywords.TunnelUrl, value);
+                _tunnelUrl = value;
             }
         }
 

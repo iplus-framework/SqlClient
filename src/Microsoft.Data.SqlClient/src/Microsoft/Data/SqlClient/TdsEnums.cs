@@ -50,6 +50,8 @@ namespace Microsoft.Data.SqlClient
         public const string VIA = "via";
         public const string LPC = "lpc";
         public const string ADMIN = "admin";
+        // iPlus fork: SQL Tunnel transport (TDS over WebSocket relay). Not an upstream protocol.
+        public const string TUNNEL = "tunnel";
 
         // network function string constants
         public const string INIT_SSPI_PACKAGE = "InitSSPIPackage";

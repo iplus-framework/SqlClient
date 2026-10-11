@@ -266,14 +266,25 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         /// <param name="stream">Stream to read from</param>
         public void ReadFromStreamAsync(Stream stream)
         {
-            stream.ReadAsync(_data, 0, _dataCapacity, CancellationToken.None)
-                .ContinueWith(
-                    continuationAction: s_readCallback,
-                    state: this,
-                    CancellationToken.None,
-                    TaskContinuationOptions.DenyChildAttach,
-                    TaskScheduler.Default
-                );
+            Task<int> task = stream.ReadAsync(_data, 0, _dataCapacity, CancellationToken.None);
+            if (task.IsCompletedSuccessfully)
+            {
+                // iPlus fork fix (browser WASM): a synchronously-completing stream (e.g. the
+                // sync-XHR tunnel transport) must run the continuation INLINE. ContinueWith
+                // with TaskScheduler.Default queues to the thread pool even for completed
+                // tasks, and single-threaded WASM has no thread pool — the demux callback
+                // would never run and the MARS connection stalls forever. Monitor locks are
+                // reentrant, so running under the caller's DemuxerSync lock is safe.
+                ReadFromStreamAsyncContinuation(task, this);
+                return;
+            }
+            task.ContinueWith(
+                continuationAction: s_readCallback,
+                state: this,
+                CancellationToken.None,
+                TaskContinuationOptions.DenyChildAttach,
+                TaskScheduler.Default
+            );
         }
 
         private static void ReadFromStreamAsyncContinuation(Task<int> task, object state)

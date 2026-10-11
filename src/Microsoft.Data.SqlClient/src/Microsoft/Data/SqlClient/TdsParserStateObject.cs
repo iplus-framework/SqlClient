@@ -3631,6 +3631,17 @@ namespace Microsoft.Data.SqlClient
                 return;
             }
 
+            // iPlus fork: SniMarsHandle.HandleReceiveError broadcasts the receive error to
+            // every MARS session, including sessions with no pending read (source == null).
+            // Upstream only guards the physical connection object above, so such a callback
+            // would trip the assert below and abort the process in Debug builds. Treat a
+            // null source on an error callback as the same benign closed-connection race.
+            if (source == null && error != 0 && _parser.MARSOn)
+            {
+                SqlClientEventSource.Log.TryTraceEvent("TdsParserStateObject.ReadAsyncCallback | Info | State Object Id {0}, MARS session error callback with no pending read; ignoring.", _objectID);
+                return;
+            }
+
             bool processFinallyBlock = true;
             try
             {

@@ -40,6 +40,7 @@ namespace Microsoft.Data.Common.ConnectionString
         internal const string TransparentNetworkIpResolution = "transparentnetworkipresolution";
         internal const string TrustedConnection = "trusted_connection"; // underscore introduced in everett
         internal const string TrustServerCertificate = "trustservercertificate";
+        internal const string TunnelUrl = "tunnelurl";
         internal const string Uid = "uid";
         internal const string User = "user";
         internal const string WorkstationId = "workstationid";

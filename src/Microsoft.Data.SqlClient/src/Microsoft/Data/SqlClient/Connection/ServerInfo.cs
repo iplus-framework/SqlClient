@@ -49,6 +49,16 @@ namespace Microsoft.Data.SqlClient.Connection
 
             ResolvedDatabaseName = userOptions.InitialCatalog;
             PreRoutingServerName = null;
+
+            // iPlus fork: SQL Tunnel transport. When TunnelUrl is set, the physical connection is
+            // opened through the WebSocket tunnel instead of a direct TCP socket. Encoding the
+            // tunnel into ExtendedServerName ("tunnel:<url>") means no downstream signature
+            // changes are needed: SNIProxy.CreateConnectionHandle parses the prefix.
+            if (!string.IsNullOrEmpty(userOptions.TunnelUrl))
+            {
+                ExtendedServerName = TdsEnums.TUNNEL + ":" + userOptions.TunnelUrl;
+                ResolvedServerName = userOptions.TunnelUrl;
+            }
         }
 
         /// <summary>

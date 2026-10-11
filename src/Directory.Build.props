@@ -186,6 +186,14 @@
 
   <!-- Strong name signing ============================================= -->
 
+  <!-- iPlus fork fallback: when no signing key is provided (e.g. sibling projects such as
+       Internal.Logging / Abstractions built transitively without the key flowing through),
+       sign with the fork key so all SqlClient family assemblies share one strong name and
+       signed consumers never hit CS8002. Explicit -p:SigningKeyPath still wins. -->
+  <PropertyGroup Condition="'$(SigningKeyPath)' == '' and Exists('$(MSBuildThisFileDirectory)..\tools\iplus-fork.snk')">
+    <SigningKeyPath>$(MSBuildThisFileDirectory)..\tools\iplus-fork.snk</SigningKeyPath>
+  </PropertyGroup>
+
   <!-- When a signing key is specified, we will perform strong name assembly signing. -->
   <PropertyGroup Condition="'$(SigningKeyPath)' != ''">
     <SignAssembly>true</SignAssembly>

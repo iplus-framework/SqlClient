@@ -172,7 +172,22 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                     }
 
                     SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, _sequenceNumber {1}, _sendHighwater {2}, Waiting for Acknowledgment event.", args0: ConnectionId, args1: _sequenceNumber, args2: _sendHighwater);
-                    _ackEvent.Wait();
+                    // iPlus fork fix (browser WASM): the ack is delivered by the demux, which
+                    // on a single-threaded runtime can only run when a session pulls. Pull
+                    // (routing the ack to this session's HandleReceiveComplete, which sets
+                    // _ackEvent and advances _sendHighwater) instead of blocking forever.
+                    if (_connection.LowerHandleSupportsSynchronousReceive)
+                    {
+                        if (!_connection.PullPacketBlocking())
+                        {
+                            SniLoadHandle.LastError = new SniError(SniProviders.SMUX_PROV, 0, SniCommon.ConnTimeoutError, Strings.SNI_ERROR_11);
+                            return SniCommon.ReportSNIError(SniProviders.SMUX_PROV, 0, SniCommon.ConnTimeoutError, Strings.SNI_ERROR_11);
+                        }
+                    }
+                    else
+                    {
+                        _ackEvent.Wait();
+                    }
 
                     lock (this)
                     {
@@ -294,43 +309,69 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         {
             using (SqlClientSNIEventScope.Create(nameof(SniMarsHandle)))
             {
-                lock (_receivedPacketQueue)
+                // iPlus fork fix (browser WASM): with a pull-based demux (synchronous transport)
+                // an async receive with an empty queue must PULL packets from the physical
+                // connection itself — the thread-pool demux that would normally complete the
+                // pending read does not exist on single-threaded WASM. The TdsParserStateObject
+                // handles a synchronously-completed ReceiveAsync (SNI_SUCCESS) by calling
+                // ReadAsyncCallback inline, so completing the read synchronously is safe.
+                bool syncTransport = _connection.LowerHandleSupportsSynchronousReceive;
+
+                while (true)
                 {
-                    int queueCount = _receivedPacketQueue.Count;
-
-                    if (_connectionError != null)
+                    lock (_receivedPacketQueue)
                     {
-                        SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.ERR, "MARS Session Id {0}, _asyncReceives {1}, _receiveHighwater {2}, _sendHighwater {3}, _receiveHighwaterLastAck {4}, _connectionError {5}", args0: ConnectionId, args1: _asyncReceives, args2: _receiveHighwater, args3: _sendHighwater, args4: _receiveHighwaterLastAck, args5: _connectionError);
-                        return SniCommon.ReportSNIError(_connectionError);
-                    }
+                        if (_connectionError != null)
+                        {
+                            SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.ERR, "MARS Session Id {0}, _asyncReceives {1}, _receiveHighwater {2}, _sendHighwater {3}, _receiveHighwaterLastAck {4}, _connectionError {5}", args0: ConnectionId, args1: _asyncReceives, args2: _receiveHighwater, args3: _sendHighwater, args4: _receiveHighwaterLastAck, args5: _connectionError);
+                            return SniCommon.ReportSNIError(_connectionError);
+                        }
 
-                    if (queueCount == 0)
-                    {
-                        _asyncReceives++;
-                        SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, queueCount 0, _asyncReceives {1}, _receiveHighwater {2}, _sendHighwater {3}, _receiveHighwaterLastAck {4}", args0: ConnectionId, args1: _asyncReceives, args2: _receiveHighwater, args3: _sendHighwater, args4: _receiveHighwaterLastAck);
+                        int queueCount = _receivedPacketQueue.Count;
 
-                        return TdsEnums.SNI_SUCCESS_IO_PENDING;
-                    }
+                        if (queueCount > 0)
+                        {
+                            packet = _receivedPacketQueue.Dequeue();
 
-                    packet = _receivedPacketQueue.Dequeue();
-
-                    if (queueCount == 1)
-                    {
+                            if (queueCount == 1)
+                            {
 #if DEBUG
-                        SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, packet dequeued {1}, packet Owner {2}, packet refCount {3}, received Packet Queue count {4}", args0: ConnectionId, args1: packet?._id, args2: packet?._owner, args3: packet?._refCount, args4: _receivedPacketQueue?.Count);
+                                SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, packet dequeued {1}, packet Owner {2}, packet refCount {3}, received Packet Queue count {4}", args0: ConnectionId, args1: packet?._id, args2: packet?._owner, args3: packet?._refCount, args4: _receivedPacketQueue?.Count);
 #endif
-                        _packetEvent.Reset();
+                                _packetEvent.Reset();
+                            }
+
+                            lock (this)
+                            {
+                                _receiveHighwater++;
+                            }
+
+                            SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, _asyncReceives {1}, _receiveHighwater {2}, _sendHighwater {3}, _receiveHighwaterLastAck {4}, queueCount {5}", args0: ConnectionId, args1: _asyncReceives, args2: _receiveHighwater, args3: _sendHighwater, args4: _receiveHighwaterLastAck, args5: _receivedPacketQueue?.Count);
+                            SendAckIfNecessary();
+                            return TdsEnums.SNI_SUCCESS;
+                        }
+
+                        if (!syncTransport)
+                        {
+                            _asyncReceives++;
+                            SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, queueCount 0, _asyncReceives {1}, _receiveHighwater {2}, _sendHighwater {3}, _receiveHighwaterLastAck {4}", args0: ConnectionId, args1: _asyncReceives, args2: _receiveHighwater, args3: _sendHighwater, args4: _receiveHighwaterLastAck);
+
+                            return TdsEnums.SNI_SUCCESS_IO_PENDING;
+                        }
+                    }
+
+                    // Queue empty on a synchronous transport: pull the next packet from the
+                    // physical connection (outside the queue lock — the inline demux takes
+                    // DemuxerSync and then the queue lock; holding the queue lock here would
+                    // invert the order taken by HandleReceiveComplete).
+                    SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, async receive on sync transport: pulling packet.", args0: ConnectionId);
+                    if (!_connection.PullPacketBlocking())
+                    {
+                        SniLoadHandle.LastError = new SniError(SniProviders.SMUX_PROV, 0, SniCommon.ConnTimeoutError, Strings.SNI_ERROR_11);
+                        SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, async pull failed.", args0: ConnectionId);
+                        return SniCommon.ReportSNIError(SniLoadHandle.LastError);
                     }
                 }
-
-                lock (this)
-                {
-                    _receiveHighwater++;
-                }
-
-                SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, _asyncReceives {1}, _receiveHighwater {2}, _sendHighwater {3}, _receiveHighwaterLastAck {4}, queueCount {5}", args0: ConnectionId, args1: _asyncReceives, args2: _receiveHighwater, args3: _sendHighwater, args4: _receiveHighwaterLastAck, args5: _receivedPacketQueue?.Count);
-                SendAckIfNecessary();
-                return TdsEnums.SNI_SUCCESS;
             }
         }
 
@@ -519,7 +560,21 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                     }
 
                     SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, _sequenceNumber {1}, _sendHighwater {2}, Waiting for packet event.", args0: ConnectionId, args1: _sequenceNumber, args2: _sendHighwater);
-                    if (!_packetEvent.Wait(timeoutInMilliseconds))
+                    // iPlus fork fix (browser WASM): instead of waiting on _packetEvent (which
+                    // only the thread-pool demux would set — and single-threaded WASM has no
+                    // thread pool), PULL the next packet from the physical connection and let
+                    // the inline demux route it. Only for synchronous transports; async
+                    // transports (desktop TCP/NP) keep the event model unchanged.
+                    if (_connection.LowerHandleSupportsSynchronousReceive)
+                    {
+                        if (!_connection.PullPacketBlocking())
+                        {
+                            SniLoadHandle.LastError = new SniError(SniProviders.SMUX_PROV, 0, SniCommon.ConnTimeoutError, Strings.SNI_ERROR_11);
+                            SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, _sequenceNumber {1}, _sendHighwater {2}, pull failed.", args0: ConnectionId, args1: _sequenceNumber, args2: _sendHighwater);
+                            return TdsEnums.SNI_WAIT_TIMEOUT;
+                        }
+                    }
+                    else if (!_packetEvent.Wait(timeoutInMilliseconds))
                     {
                         SniLoadHandle.LastError = new SniError(SniProviders.SMUX_PROV, 0, SniCommon.ConnTimeoutError, Strings.SNI_ERROR_11);
                         SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsHandle), EventType.INFO, "MARS Session Id {0}, _sequenceNumber {1}, _sendHighwater {2}, _packetEvent wait timed out.", args0: ConnectionId, args1: _sequenceNumber, args2: _sendHighwater);

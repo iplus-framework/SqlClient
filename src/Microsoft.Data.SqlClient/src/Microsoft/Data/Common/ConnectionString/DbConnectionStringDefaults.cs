@@ -50,6 +50,7 @@ namespace Microsoft.Data.Common.ConnectionString
         internal const bool Pooling = true;
         internal const bool Replication = false;
         internal const string ServerCertificate = "";
+        internal const string TunnelUrl = "";
         internal const string ServerSpn = "";
         internal const string TransactionBinding = "Implicit Unbind";
         internal const bool TrustServerCertificate = false;

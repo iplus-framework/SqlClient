@@ -92,6 +92,9 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                     sniHandle = CreateTcpHandle(details, timeout, parallel, ipPreference, cachedFQDN, ref pendingDNSInfo,
                         tlsFirst, hostNameInCertificate, serverCertificateFilename);
                     break;
+                case DataSource.Protocol.Tunnel:
+                    sniHandle = CreateTunnelHandle(details, timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename);
+                    break;
                 case DataSource.Protocol.NP:
                     sniHandle = CreateNpHandle(details, timeout, parallel, tlsFirst, hostNameInCertificate, serverCertificateFilename);
                     break;
@@ -100,7 +103,7 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                     break;
             }
 
-            if (isIntegratedSecurity)
+            if (isIntegratedSecurity && details.ResolvedProtocol != DataSource.Protocol.Tunnel)
             {
                 try
                 {
@@ -258,6 +261,55 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         }
 
         /// <summary>
+        /// Creates an SniWebSocketHandle object for the SQL Tunnel transport.
+        /// </summary>
+        /// <param name="details">Data source (must carry a TunnelUrl)</param>
+        /// <param name="timeout">Timer expiration</param>
+        /// <param name="tlsFirst">Support TDS8.0</param>
+        /// <param name="hostNameInCertificate">Host name in certificate</param>
+        /// <param name="serverCertificateFilename">Used for the path to the Server Certificate</param>
+        /// <returns>SniWebSocketHandle</returns>
+        private static SniWebSocketHandle CreateTunnelHandle(
+            DataSource details,
+            TimeoutTimer timeout,
+            bool tlsFirst,
+            string hostNameInCertificate,
+            string serverCertificateFilename)
+        {
+            if (string.IsNullOrWhiteSpace(details.TunnelUrl))
+            {
+                SniLoadHandle.LastError = new SniError(SniProviders.TCP_PROV, 0, SniCommon.InvalidConnStringError, Strings.SNI_ERROR_25);
+                return null;
+            }
+
+#if IPLUS_BROWSER
+            // Browser WASM: a WebSocket TunnelUrl cannot work (sync-over-async on the main
+            // thread is impossible — no Monitor.Wait, WS messages are macrotasks). An
+            // http:// or https:// TunnelUrl selects the sync-XHR HTTP shim transport instead
+            // (PASqlTunnelHost /sqltunnel-sync endpoints). See docs §7.
+            string tunnelUrl = details.TunnelUrl;
+            if (tunnelUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                tunnelUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                SyncHttpTunnelStream syncStream = new SyncHttpTunnelStream(tunnelUrl);
+                syncStream.Connect();
+                return new SniWebSocketHandle(syncStream, tunnelUrl, timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename);
+            }
+
+            if (tunnelUrl.StartsWith("ws://", StringComparison.OrdinalIgnoreCase) ||
+                tunnelUrl.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
+            {
+                SniLoadHandle.LastError = new SniError(SniProviders.TCP_PROV, 0, SniCommon.InvalidConnStringError,
+                    "WebSocket tunnel URLs are not supported in the browser (WASM): sync-over-async network I/O is impossible on the main thread. " +
+                    "Use the HTTP sync shim instead, e.g. Tunnel URL=http://host:port/sqltunnel-sync");
+                return null;
+            }
+#endif
+
+            return new SniWebSocketHandle(details.TunnelUrl, timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename);
+        }
+
+        /// <summary>
         /// Creates an SNINpHandle object
         /// </summary>
         /// <param name="details">Data source</param>
@@ -352,7 +404,7 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         private const string PathSeparator = "\\";
         private const string IPv6LiteralHostSuffix = ".ipv6-literal.net";
 
-        internal enum Protocol { TCP, NP, None, Admin };
+        internal enum Protocol { TCP, NP, None, Admin, Tunnel };
 
         /// <summary>
         /// Provides the HostName of the server to connect to for TCP protocol.
@@ -394,6 +446,12 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         private string _workingDataSource;
         private string _dataSourceAfterTrimmingProtocol;
 
+        /// <summary>
+        /// The WebSocket tunnel URL when the data source uses the "tunnel:" protocol,
+        /// preserved in its original casing (URL paths are case-sensitive).
+        /// </summary>
+        internal string TunnelUrl { get; private set; }
+
         internal bool IsBadDataSource { get; private set; } = false;
 
         internal bool IsSsrpRequired { get; private set; } = false;
@@ -409,6 +467,16 @@ namespace Microsoft.Data.SqlClient.ManagedSni
 
             _dataSourceAfterTrimmingProtocol = (firstIndexOfColon > -1) && ResolvedProtocol != Protocol.None
                 ? _workingDataSource.Substring(firstIndexOfColon + 1).Trim() : _workingDataSource;
+
+            if (ResolvedProtocol == Protocol.Tunnel)
+            {
+                // Preserve the original casing of the tunnel URL (host is case-insensitive, but
+                // the path is not). The trimmed prefix length is identical because both strings
+                // are trimmed the same way.
+                string trimmedOriginal = dataSource.Trim();
+                TunnelUrl = trimmedOriginal.Substring(trimmedOriginal.IndexOf(SemiColon) + 1).Trim();
+                return;
+            }
 
             if (_dataSourceAfterTrimmingProtocol.Contains(Slash)) // Pipe paths only allow back slashes
             {
@@ -448,6 +516,9 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                         break;
                     case TdsEnums.ADMIN:
                         ResolvedProtocol = Protocol.Admin;
+                        break;
+                    case TdsEnums.TUNNEL:
+                        ResolvedProtocol = Protocol.Tunnel;
                         break;
                     default:
                         // None of the supported protocols were found. This may be a IPv6 address

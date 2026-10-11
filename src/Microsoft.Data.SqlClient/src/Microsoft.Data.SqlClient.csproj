@@ -5,8 +5,9 @@
   </PropertyGroup>
 
   <!-- Target Frameworks =============================================== -->
+  <!-- iPlus fork: only .NET 10 (desktop/server) and .NET 10 browser (WASM) are supported. -->
   <PropertyGroup>
-    <TargetFrameworks>net462;net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net10.0-browser</TargetFrameworks>
   </PropertyGroup>
 
   <!-- Compiler Options ================================================ -->
@@ -16,6 +17,9 @@
     <!-- Opt into the documentation snippet compile inputs declared in src/Directory.Build.targets. -->
     <IncludesDocumentationSnippets>true</IncludesDocumentationSnippets>
     <RootNamespace />
+    <!-- Browser/WASM build flag: System.Net.Security (SslStream) is PlatformNotSupported
+         there, so the TDS-level TLS handshake must be skipped (ENCRYPT_NOT_SUP path). -->
+    <DefineConstants Condition="'$(TargetFramework)' == 'net10.0-browser'">$(DefineConstants);IPLUS_BROWSER</DefineConstants>
   </PropertyGroup>
 
   <!-- CLS Compliance ================================================== -->
@@ -286,13 +290,25 @@
   </ItemGroup>
 
   <!-- References for netcore -->
-  <ItemGroup Condition="'$(TargetFramework)' != 'net462'">
+  <ItemGroup Condition="'$(TargetFramework)' != 'net462' and '$(TargetFramework)' != 'net10.0-browser'">
     <PackageReference Include="Microsoft.Bcl.Cryptography" />
     <PackageReference Include="Microsoft.Data.SqlClient.SNI.runtime" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+    <PackageReference Include="System.Threading.RateLimiting" />
+  </ItemGroup>
+
+  <!-- References for browser (net10.0-browser): no native SNI. ConfigurationManager is kept
+       (pure managed) because several config-section types are type-forwarded to it. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-browser'">
+    <PackageReference Include="Microsoft.Bcl.Cryptography" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="System.Threading.RateLimiting" />
   </ItemGroup>

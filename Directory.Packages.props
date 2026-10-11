@@ -167,7 +167,9 @@
     <PackageVersion Include="System.Threading.Channels" Version="10.0.3" />
   </ItemGroup>
 
-  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net9.0'))">
+  <!-- iplus fork: also match empty TargetFramework so static-graph restore (which evaluates
+       Directory.Packages.props once with no TFM) sees a PackageVersion for every id. -->
+  <ItemGroup Condition="'$(TargetFramework)' == '' or $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net9.0'))">
     <PackageVersion Include="Microsoft.Bcl.Cryptography" Version="9.0.18" />
     <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="9.0.18" />
     <PackageVersion Include="System.Threading.RateLimiting" Version="9.0.18" />
@@ -175,7 +177,7 @@
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="9.0.18" />
   </ItemGroup>
 
-  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net9.0'))">
+  <ItemGroup Condition="'$(TargetFramework)' != '' and !$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net9.0'))">
     <PackageVersion Include="Microsoft.Bcl.Cryptography" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
     <PackageVersion Include="System.Threading.RateLimiting" Version="8.0.0" />

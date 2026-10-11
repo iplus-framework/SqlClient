@@ -1402,6 +1402,15 @@ namespace System {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The WebSocket tunnel URL used to reach the SQL Server through a SQL Tunnel relay. When set, the connection is transported over the tunnel instead of a direct TCP socket..
+        /// </summary>
+        internal static string DbConnectionString_TunnelUrl {
+            get {
+                return ResourceManager.GetString("DbConnectionString_TunnelUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The hostname to be expected in the server&apos;s certificate when encryption is negotiated, if it&apos;s different from the default value derived from Addr/Address/Server..
         /// </summary>
         internal static string DbConnectionString_HostNameInCertificate {

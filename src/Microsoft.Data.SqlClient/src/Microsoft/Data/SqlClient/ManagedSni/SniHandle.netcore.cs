@@ -21,14 +21,27 @@ namespace Microsoft.Data.SqlClient.ManagedSni
     {
         protected static readonly SslProtocols s_supportedProtocols = SslProtocols.None;
 
-        protected static readonly List<SslApplicationProtocol> s_tdsProtocols = new List<SslApplicationProtocol>(1) { new(TdsEnums.TDS8_Protocol) };
+        // iPlus fork: lazily created. SslApplicationProtocol (System.Net.Security) is
+        // PlatformNotSupported on browser/WASM, and a static initializer touching it would
+        // break type initialization of the whole SniHandle hierarchy there. TDS 8.0 (the
+        // only user of ALPN) is not used on browser.
+        private static List<SslApplicationProtocol> s_tdsProtocols;
+
+        private static List<SslApplicationProtocol> GetTdsProtocols()
+        {
+            if (s_tdsProtocols == null)
+            {
+                s_tdsProtocols = new List<SslApplicationProtocol>(1) { new(TdsEnums.TDS8_Protocol) };
+            }
+            return s_tdsProtocols;
+        }
 
         protected static async Task AuthenticateAsClientAsync(SslStream sslStream, string serverNameIndication, X509CertificateCollection certificate, CancellationToken token)
         {
             SslClientAuthenticationOptions sslClientOptions = new()
             {
                 TargetHost = serverNameIndication,
-                ApplicationProtocols = s_tdsProtocols,
+                ApplicationProtocols = GetTdsProtocols(),
                 ClientCertificates = certificate
             };
             await sslStream.AuthenticateAsClientAsync(sslClientOptions, token);
@@ -50,6 +63,14 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         /// <param name="receiveCallback">Receive callback</param>
         /// <param name="sendCallback">Send callback</param>
         public abstract void SetAsyncCallbacks(SniAsyncCallback receiveCallback, SniAsyncCallback sendCallback);
+
+        /// <summary>
+        /// iPlus fork (browser WASM): true if this handle's transport completes reads
+        /// synchronously (e.g. the sync-XHR tunnel stream). Only then may the MARS demux
+        /// be pulled synchronously by a session; async transports must keep the
+        /// thread-pool callback + packet-event model.
+        /// </summary>
+        internal virtual bool SupportsSynchronousReceive => false;
 
         /// <summary>
         /// Set buffer size

@@ -77,6 +77,18 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         {
             using (SqlClientSNIEventScope.Create(nameof(SniMarsConnection)))
             {
+                // iPlus fork fix (browser WASM): with a synchronously-completing transport the
+                // demux is PULL-based — sessions fetch packets via PullPacketBlocking when
+                // their queues are empty. A standing read here would block the single main
+                // thread forever (the server only sends after the client sends), so skip it.
+                if (_lowerHandle.SupportsSynchronousReceive)
+                {
+                    SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsConnection), EventType.INFO, "MARS Session Id {0}, synchronous transport: pull-based demux, no standing read.", args0: ConnectionId);
+                    Console.WriteLine($"SniMarsConnection.StartReceive: sync transport ({_lowerHandle.GetType().Name}) -> pull-based demux, no standing read.");
+                    return TdsEnums.SNI_SUCCESS_IO_PENDING;
+                }
+                Console.WriteLine($"SniMarsConnection.StartReceive: async transport ({_lowerHandle.GetType().Name}) -> standing read.");
+
                 SniPacket packet = null;
 
                 if (ReceiveAsync(ref packet) == TdsEnums.SNI_SUCCESS_IO_PENDING)
@@ -88,6 +100,29 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                 return SniCommon.ReportSNIError(SniProviders.SMUX_PROV, 0, SniCommon.ConnNotUsableError, Strings.SNI_ERROR_19);
             }
         }
+
+        /// <summary>
+        /// iPlus fork fix (browser WASM): pull one packet from the physical connection and
+        /// run the demux synchronously. On single-threaded runtimes there is no thread pool
+        /// to deliver async receive completions, so a MARS session with an empty queue must
+        /// read the physical transport itself. With a synchronously-completing transport
+        /// (sync-XHR tunnel) SniPacket.ReadFromStreamAsync runs HandleReceiveComplete inline,
+        /// which routes the packet into the target session's queue. Returns false if the
+        /// lower handle reported an immediate error (the session loop will observe
+        /// _connectionError on its next queue check).
+        /// </summary>
+        public bool PullPacketBlocking()
+        {
+            SniPacket packet = null;
+            uint result = ReceiveAsync(ref packet);
+            return result == TdsEnums.SNI_SUCCESS_IO_PENDING || result == TdsEnums.SNI_SUCCESS;
+        }
+
+        /// <summary>
+        /// iPlus fork (browser WASM): whether the physical transport completes reads
+        /// synchronously — only then may sessions pull packets (see PullPacketBlocking).
+        /// </summary>
+        internal bool LowerHandleSupportsSynchronousReceive => _lowerHandle.SupportsSynchronousReceive;
 
         /// <summary>
         /// Send a packet synchronously
@@ -170,7 +205,10 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         /// </summary>
         public void HandleReceiveError(SniPacket packet)
         {
-            Debug.Assert(Monitor.IsEntered(this), "HandleReceiveError was called without being locked.");
+            // iPlus fork fix: the locks in this class are taken on _sync (DemuxerSync),
+            // not on `this`, so checking Monitor.IsEntered(this) always failed and fired
+            // this assert on every receive-error path in DEBUG builds.
+            Debug.Assert(Monitor.IsEntered(DemuxerSync), "HandleReceiveError was called without being locked.");
             foreach (SniMarsHandle handle in _sessions.Values)
             {
                 if (packet.HasAsyncIOCompletionCallback)
@@ -343,6 +381,16 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                     {
                         if (packet.DataLeft == 0)
                         {
+                            // iPlus fork fix (browser WASM): with a synchronous transport, do
+                            // NOT read ahead — the next session pull (PullPacketBlocking) will
+                            // fetch the next packet. Reading ahead here would block the single
+                            // main thread waiting for data the server only sends after the
+                            // client's next request.
+                            if (_lowerHandle.SupportsSynchronousReceive)
+                            {
+                                return;
+                            }
+
                             sniErrorCode = ReceiveAsync(ref packet);
 
                             if (sniErrorCode == TdsEnums.SNI_SUCCESS_IO_PENDING)
