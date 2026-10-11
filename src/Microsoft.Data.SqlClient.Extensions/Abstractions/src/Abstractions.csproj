@@ -48,19 +48,20 @@
   <!-- NuGet Package Config ============================================ -->
   <!-- See: https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#pack-target -->
   <PropertyGroup>
-    <PackageId>$(AssemblyName)</PackageId>
+    <!-- iplus fork: package id prefixed with "iPlus." (assembly name unchanged) -->
+    <PackageId>iPlus.$(AssemblyName)</PackageId>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
-    <Title>Microsoft.Data.SqlClient.Extensions.Abstractions</Title>
-    <Authors>Microsoft</Authors>
-    <Company>Microsoft Corporation</Company>
-    <Description>Microsoft.Data.SqlClient Extensions Abstractions</Description>
-    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
-    <PackageTags>sqlclient microsoft.data.sqlclient extensions abstractions</PackageTags>
+    <Title>iPlus.Microsoft.Data.SqlClient.Extensions.Abstractions</Title>
+    <Authors>iPlus</Authors>
+    <Company>iPlus</Company>
+    <Description>iPlus fork of Microsoft.Data.SqlClient Extensions Abstractions. Based on dotnet/SqlClient with iPlus-specific modifications.</Description>
+    <Copyright>Copyright 2013-2026 © Microsoft Corporation; iPlus fork modifications</Copyright>
+    <PackageTags>sqlclient microsoft.data.sqlclient extensions abstractions iplus</PackageTags>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/dotnet/SqlClient</RepositoryUrl>
-    <PackageProjectUrl>https://aka.ms/sqlclientproject</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/iplus-framework/SqlClient/</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/iplus-framework/SqlClient/</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageIcon>dotnet.png</PackageIcon>

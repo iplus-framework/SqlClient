@@ -72,20 +72,21 @@
     separately and uses its own SqlServerPackageVersion.
   -->
   <ItemGroup Condition="'$(ReferenceType)' == 'Package'">
+    <!-- iplus fork: sibling package ids prefixed with "iPlus." (assembly names unchanged) -->
     <PackageVersion
-      Include="Microsoft.SqlServer.Server"
+      Include="iPlus.Microsoft.SqlServer.Server"
       Version="[$(SqlServerPackageVersion), $(SqlServerVersionCeiling))" />
     <PackageVersion
-      Include="Microsoft.Data.SqlClient.Internal.Logging"
+      Include="iPlus.Microsoft.Data.SqlClient.Internal.Logging"
       Version="[$(SqlClientPackageVersion), $(SqlClientVersionCeiling))" />
     <PackageVersion
-      Include="Microsoft.Data.SqlClient.Extensions.Abstractions"
+      Include="iPlus.Microsoft.Data.SqlClient.Extensions.Abstractions"
       Version="[$(SqlClientPackageVersion), $(SqlClientVersionCeiling))" />
     <PackageVersion
-      Include="Microsoft.Data.SqlClient"
+      Include="iPlus.Microsoft.Data.SqlClient"
       Version="[$(SqlClientPackageVersion), $(SqlClientVersionCeiling))" />
     <PackageVersion
-      Include="Microsoft.Data.SqlClient.Extensions.Azure"
+      Include="iPlus.Microsoft.Data.SqlClient.Extensions.Azure"
       Version="[$(SqlClientPackageVersion), $(SqlClientVersionCeiling))" />
     <PackageVersion
       Include="Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider"

@@ -39,7 +39,7 @@ namespace System {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Microsoft.Data.SqlClient.Resources.Strings", typeof(Strings).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("System.Strings", typeof(Strings).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -1402,20 +1402,20 @@ namespace System {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The WebSocket tunnel URL used to reach the SQL Server through a SQL Tunnel relay. When set, the connection is transported over the tunnel instead of a direct TCP socket..
-        /// </summary>
-        internal static string DbConnectionString_TunnelUrl {
-            get {
-                return ResourceManager.GetString("DbConnectionString_TunnelUrl", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The hostname to be expected in the server&apos;s certificate when encryption is negotiated, if it&apos;s different from the default value derived from Addr/Address/Server..
         /// </summary>
         internal static string DbConnectionString_HostNameInCertificate {
             get {
                 return ResourceManager.GetString("DbConnectionString_HostNameInCertificate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The maximum amount of time (in seconds) a connection can sit unused (idle) in the pool before it is discarded when legacy idle-timeout behavior is disabled. A value of 0 disables idle expiration..
+        /// </summary>
+        internal static string DbConnectionString_IdleTimeout {
+            get {
+                return ResourceManager.GetString("DbConnectionString_IdleTimeout", resourceCulture);
             }
         }
         
@@ -1443,15 +1443,6 @@ namespace System {
         internal static string DbConnectionString_LoadBalanceTimeout {
             get {
                 return ResourceManager.GetString("DbConnectionString_LoadBalanceTimeout", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The maximum amount of time (in seconds) a connection can sit unused (idle) in the pool before it is discarded when legacy idle-timeout behavior is disabled. A value of 0 disables idle expiration..
-        /// </summary>
-        internal static string DbConnectionString_IdleTimeout {
-            get {
-                return ResourceManager.GetString("DbConnectionString_IdleTimeout", resourceCulture);
             }
         }
         
@@ -1596,6 +1587,15 @@ namespace System {
         internal static string DbConnectionString_TrustServerCertificate {
             get {
                 return ResourceManager.GetString("DbConnectionString_TrustServerCertificate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The WebSocket tunnel URL used to reach the SQL Server through a SQL Tunnel relay. When set, the connection is transported over the tunnel instead of a direct TCP socket..
+        /// </summary>
+        internal static string DbConnectionString_TunnelUrl {
+            get {
+                return ResourceManager.GetString("DbConnectionString_TunnelUrl", resourceCulture);
             }
         }
         
@@ -3076,15 +3076,6 @@ namespace System {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Setting &apos;useWamBroker&apos; requires the &apos;Microsoft.Data.SqlClient.Extensions.Azure&apos; package to expose &apos;Microsoft.Data.SqlClient.ActiveDirectoryAuthenticationProviderOptions&apos;. Upgrade the &apos;Microsoft.Data.SqlClient.Extensions.Azure&apos; package to a version that includes this type..
-        /// </summary>
-        internal static string SQL_UseWamBrokerRequiresAzureExtensionUpgrade {
-            get {
-                return ResourceManager.GetString("SQL_UseWamBrokerRequiresAzureExtensionUpgrade", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Cannot find an authentication provider for &apos;{0}&apos;..
         /// </summary>
         internal static string SQL_CannotFindAuthProvider {
@@ -4296,6 +4287,15 @@ namespace System {
         internal static string SQL_UserInstanceFailure {
             get {
                 return ResourceManager.GetString("SQL_UserInstanceFailure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Setting &apos;useWamBroker&apos; requires the &apos;Microsoft.Data.SqlClient.Extensions.Azure&apos; package to expose &apos;Microsoft.Data.SqlClient.ActiveDirectoryAuthenticationProviderOptions&apos;. Upgrade the &apos;Microsoft.Data.SqlClient.Extensions.Azure&apos; package to at least v1.1.0 that includes this type..
+        /// </summary>
+        internal static string SQL_UseWamBrokerRequiresAzureExtensionUpgrade {
+            get {
+                return ResourceManager.GetString("SQL_UseWamBrokerRequiresAzureExtensionUpgrade", resourceCulture);
             }
         }
         
@@ -6361,6 +6361,15 @@ namespace System {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Enclave attestation failed because the signed enclave report did not bind to the enclave public key used to establish the session. The enclave public key must match the value committed to by the signed report - see https://go.microsoft.com/fwlink/?linkid=2160553 for more details. If correct, contact Customer Support Services..
+        /// </summary>
+        internal static string VerifyEnclaveKeyBindingFailed {
+            get {
+                return ResourceManager.GetString("VerifyEnclaveKeyBindingFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Could not verify enclave policy due to a difference between the expected and actual values of the policy on property &apos;{0}&apos;. Actual: &apos;{1}&apos;, Expected: &apos;{2}&apos; - see https://go.microsoft.com/fwlink/?linkid=2160553 for more details..
         /// </summary>
         internal static string VerifyEnclavePolicyFailedFormat {
@@ -6375,15 +6384,6 @@ namespace System {
         internal static string VerifyEnclaveReportFailed {
             get {
                 return ResourceManager.GetString("VerifyEnclaveReportFailed", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Enclave attestation failed because the signed enclave report did not bind to the enclave public key used to establish the session. The enclave public key must match the value committed to by the signed report - see https://go.microsoft.com/fwlink/?linkid=2160553 for more details. If correct, contact Customer Support Services..
-        /// </summary>
-        internal static string VerifyEnclaveKeyBindingFailed {
-            get {
-                return ResourceManager.GetString("VerifyEnclaveKeyBindingFailed", resourceCulture);
             }
         }
         

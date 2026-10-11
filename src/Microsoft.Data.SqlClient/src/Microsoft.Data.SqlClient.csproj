@@ -245,7 +245,8 @@
   <ItemGroup>
     <ProjectReference Include="$(AbstractionsProjectPath)"
                       Condition="'$(ReferenceType)' != 'Package'" />
-    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Abstractions"
+    <!-- iplus fork: sibling package ids prefixed with "iPlus." -->
+    <PackageReference Include="iPlus.Microsoft.Data.SqlClient.Extensions.Abstractions"
                       Condition="'$(ReferenceType)' == 'Package'" />
   </ItemGroup>
 
@@ -253,7 +254,7 @@
   <ItemGroup>
     <ProjectReference Include="$(LoggingProjectPath)"
                       Condition="'$(ReferenceType)' != 'Package'" />
-    <PackageReference Include="Microsoft.Data.SqlClient.Internal.Logging"
+    <PackageReference Include="iPlus.Microsoft.Data.SqlClient.Internal.Logging"
                       Condition="'$(ReferenceType)' == 'Package'" />
   </ItemGroup>
 
@@ -261,7 +262,7 @@
   <ItemGroup>
     <ProjectReference Include="$(RepoRoot)/src/Microsoft.SqlServer.Server/Microsoft.SqlServer.Server.csproj"
                       Condition="'$(ReferenceType)' != 'Package'" />
-    <PackageReference Include="Microsoft.SqlServer.Server"
+    <PackageReference Include="iPlus.Microsoft.SqlServer.Server"
                       Condition="'$(ReferenceType)' == 'Package'" />
   </ItemGroup>
 
