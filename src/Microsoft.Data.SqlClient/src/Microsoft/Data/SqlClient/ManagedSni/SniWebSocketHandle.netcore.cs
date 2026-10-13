@@ -68,7 +68,22 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             bool tlsFirst,
             string hostNameInCertificate,
             string serverCertificateFilename)
-            : this(CreateWebSocketTransport(tunnelUrl, timeout), tunnelUrl, timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename)
+            : this(TunnelAuthInfo.Parse(tunnelUrl), timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename)
+        {
+        }
+
+        /// <summary>
+        /// Creates a tunnel handle over a WebSocket transport, forwarding the stage-1
+        /// bearer token as the handshake Authorization header and the stage-2 iPlus
+        /// credentials as the first binary message (auth frame) before any TDS bytes.
+        /// </summary>
+        internal SniWebSocketHandle(
+            TunnelAuthInfo tunnelAuth,
+            TimeoutTimer timeout,
+            bool tlsFirst,
+            string hostNameInCertificate,
+            string serverCertificateFilename)
+            : this(CreateWebSocketTransport(tunnelAuth, timeout), tunnelAuth.BaseUrl, timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename)
         {
         }
 
@@ -107,13 +122,27 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             }
         }
 
-        private static WebSocketStream CreateWebSocketTransport(string tunnelUrl, TimeoutTimer timeout)
+        private static WebSocketStream CreateWebSocketTransport(TunnelAuthInfo tunnelAuth, TimeoutTimer timeout)
         {
             ClientWebSocket webSocket = new ClientWebSocket();
+            // Stage 1: bearer token on the WebSocket handshake.
+            if (tunnelAuth.HasToken)
+            {
+                webSocket.Options.SetRequestHeader("Authorization", "Bearer " + tunnelAuth.Token);
+            }
             using CancellationTokenSource cts = timeout.IsInfinite
                 ? new CancellationTokenSource()
                 : new CancellationTokenSource(TimeSpan.FromMilliseconds(Math.Max(timeout.MillisecondsRemainingInt, 0)));
-            webSocket.ConnectAsync(new Uri(tunnelUrl), cts.Token).ConfigureAwait(false).GetAwaiter().GetResult();
+            webSocket.ConnectAsync(new Uri(tunnelAuth.BaseUrl), cts.Token).ConfigureAwait(false).GetAwaiter().GetResult();
+
+            // Stage 2: send the iPlus credentials as the first message (auth frame) so the
+            // relay validates them BEFORE opening the TCP connection to SQL Server.
+            if (tunnelAuth.HasCredentials)
+            {
+                byte[] authFrame = tunnelAuth.BuildAuthFrame();
+                webSocket.SendAsync(new ArraySegment<byte>(authFrame), WebSocketMessageType.Binary, endOfMessage: true, cts.Token)
+                    .ConfigureAwait(false).GetAwaiter().GetResult();
+            }
             return new WebSocketStream(webSocket);
         }
 

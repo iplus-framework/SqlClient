@@ -287,11 +287,14 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             // thread is impossible — no Monitor.Wait, WS messages are macrotasks). An
             // http:// or https:// TunnelUrl selects the sync-XHR HTTP shim transport instead
             // (PASqlTunnelHost /sqltunnel-sync endpoints). See docs §7.
-            string tunnelUrl = details.TunnelUrl;
+            // Auth query parameters (?iplususer=&ipluspass=&authtoken=) are stripped from
+            // the URL and forwarded out-of-band (stage 1 + stage 2 tunnel auth, docs §9.21).
+            TunnelAuthInfo tunnelAuth = TunnelAuthInfo.Parse(details.TunnelUrl);
+            string tunnelUrl = tunnelAuth.BaseUrl;
             if (tunnelUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                 tunnelUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
-                SyncHttpTunnelStream syncStream = new SyncHttpTunnelStream(tunnelUrl);
+                SyncHttpTunnelStream syncStream = new SyncHttpTunnelStream(tunnelAuth);
                 syncStream.Connect();
                 return new SniWebSocketHandle(syncStream, tunnelUrl, timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename);
             }
@@ -306,7 +309,7 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             }
 #endif
 
-            return new SniWebSocketHandle(details.TunnelUrl, timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename);
+            return new SniWebSocketHandle(TunnelAuthInfo.Parse(details.TunnelUrl), timeout, tlsFirst, hostNameInCertificate, serverCertificateFilename);
         }
 
         /// <summary>

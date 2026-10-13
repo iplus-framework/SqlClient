@@ -26,7 +26,9 @@ namespace Microsoft.Data.SqlClient.ManagedSni
     /// Monitor.Wait, no event-loop re-entrancy. The deprecation warning is cosmetic.
     ///
     /// Wire format (must match PASqlTunnelHost):
-    /// - POST {base}/session            -> 200 {"sessionId": "..."}
+    /// - POST {base}/session            body = JSON {"user","password","token"} (tunnel auth,
+    ///                                  docs §9.21) + optional Authorization header
+    ///                                  -> 200 {"sessionId": "..."} | 401 auth failed
     /// - POST {base}/{id}/send          body = raw TDS bytes -> 200
     /// - POST {base}/{id}/recv          -> 200 body = base64 text | 204 no-data (retry) | 410 dead
     /// Base64 is used for the receive direction because synchronous XHR in window context only
@@ -38,19 +40,22 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         private const int MaxChunkSize = 16 * 1024;
 
         private readonly string _baseUrl;
+        private readonly TunnelAuthInfo _auth;
         private string _sessionId;
         private readonly byte[] _receiveBuffer = new byte[MaxChunkSize];
         private int _readPos;
         private int _readLen;
         private bool _disposed;
 
-        public SyncHttpTunnelStream(string baseUrl)
+        /// <param name="auth">Parsed tunnel URL incl. auth query parameters (stage 1 token + stage 2 iPlus credentials).</param>
+        public SyncHttpTunnelStream(TunnelAuthInfo auth)
         {
-            if (string.IsNullOrWhiteSpace(baseUrl))
+            if (auth == null || string.IsNullOrWhiteSpace(auth.BaseUrl))
             {
-                throw new ArgumentNullException(nameof(baseUrl));
+                throw new ArgumentNullException(nameof(auth));
             }
-            _baseUrl = baseUrl.TrimEnd('/');
+            _auth = auth;
+            _baseUrl = auth.BaseUrl.TrimEnd('/');
         }
 
         /// <summary>
@@ -60,7 +65,9 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         public void Connect()
         {
             SyncHttpTunnelJs.EnsureShimInstalled();
-            _sessionId = SyncHttpTunnelJs.CreateSession(_baseUrl);
+            // Stage 1 (Authorization header) + stage 2 (iPlus credentials in the session
+            // body) are validated by the relay BEFORE it opens the TCP socket to SQL Server.
+            _sessionId = SyncHttpTunnelJs.CreateSession(_baseUrl, _auth?.User, _auth?.Password, _auth?.Token);
             if (string.IsNullOrEmpty(_sessionId))
             {
                 throw new IOException("SQL tunnel sync shim: empty session id from " + _baseUrl);
@@ -108,7 +115,7 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             // short blocking XHR, never one long-blocked request.
             while (true)
             {
-                string base64 = SyncHttpTunnelJs.Recv(_baseUrl, _sessionId);
+                string base64 = SyncHttpTunnelJs.Recv(_baseUrl, _sessionId, _auth?.Token);
                 if (base64 == null)
                 {
                     continue; // 204: no data yet, retry
@@ -154,7 +161,7 @@ namespace Microsoft.Data.SqlClient.ManagedSni
 
             string base64 = Convert.ToBase64String(buffer, offset, count);
             Console.WriteLine($"SyncHttpTunnelStream: Write {count} bytes");
-            int status = SyncHttpTunnelJs.Send(_baseUrl, _sessionId, base64);
+            int status = SyncHttpTunnelJs.Send(_baseUrl, _sessionId, base64, _auth?.Token);
             if (status != 200)
             {
                 throw new IOException($"SQL tunnel sync shim: send failed with HTTP {status} (session dead or relay unreachable).");
@@ -213,7 +220,7 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             {
                 try
                 {
-                    SyncHttpTunnelJs.DeleteSession(_baseUrl, _sessionId);
+                    SyncHttpTunnelJs.DeleteSession(_baseUrl, _sessionId, _auth?.Token);
                 }
                 catch
                 {
@@ -246,34 +253,42 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             (function () {
                 if (globalThis.sqlTunnelSync) { return; }
                 globalThis.sqlTunnelSync = {
-                    create: function (baseUrl) {
+                    create: function (baseUrl, user, pass, token) {
                         var xhr = new XMLHttpRequest();
                         xhr.open('POST', baseUrl + '/session', false);
-                        xhr.send(null);
+                        if (token) { xhr.setRequestHeader('Authorization', 'Bearer ' + token); }
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        // Stage 2: iPlus credentials validated by the relay before it opens
+                        // the SQL Server TCP socket. Empty strings = no stage-2 auth.
+                        xhr.send(JSON.stringify({ user: user || '', password: pass || '', token: token || '' }));
+                        if (xhr.status === 401) { throw new Error('SQL tunnel auth failed: HTTP 401 (invalid token or iPlus credentials)'); }
                         if (xhr.status !== 200) { throw new Error('SQL tunnel session failed: HTTP ' + xhr.status); }
                         return JSON.parse(xhr.responseText).sessionId;
                     },
-                    send: function (baseUrl, sessionId, base64) {
+                    send: function (baseUrl, sessionId, base64, token) {
                         var bin = atob(base64);
                         var bytes = new Uint8Array(bin.length);
                         for (var i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
                         var xhr = new XMLHttpRequest();
                         xhr.open('POST', baseUrl + '/' + sessionId + '/send', false);
+                        if (token) { xhr.setRequestHeader('Authorization', 'Bearer ' + token); }
                         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
                         xhr.send(bytes);
                         return xhr.status;
                     },
-                    recv: function (baseUrl, sessionId) {
+                    recv: function (baseUrl, sessionId, token) {
                         var xhr = new XMLHttpRequest();
                         xhr.open('POST', baseUrl + '/' + sessionId + '/recv', false);
+                        if (token) { xhr.setRequestHeader('Authorization', 'Bearer ' + token); }
                         xhr.send(null);
                         if (xhr.status === 204) { return null; }
                         if (xhr.status !== 200) { throw new Error('SQL tunnel recv failed: HTTP ' + xhr.status); }
                         return xhr.responseText;
                     },
-                    deleteSession: function (baseUrl, sessionId) {
+                    deleteSession: function (baseUrl, sessionId, token) {
                         var xhr = new XMLHttpRequest();
                         xhr.open('DELETE', baseUrl + '/' + sessionId, false);
+                        if (token) { xhr.setRequestHeader('Authorization', 'Bearer ' + token); }
                         xhr.send(null);
                         return xhr.status;
                     }
@@ -306,16 +321,16 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         internal static partial void JsEval(string script);
 
         [JSImport("globalThis.sqlTunnelSync.create")]
-        internal static partial string CreateSession(string baseUrl);
+        internal static partial string CreateSession(string baseUrl, string user, string password, string token);
 
         [JSImport("globalThis.sqlTunnelSync.send")]
-        internal static partial int Send(string baseUrl, string sessionId, string base64);
+        internal static partial int Send(string baseUrl, string sessionId, string base64, string token);
 
         [JSImport("globalThis.sqlTunnelSync.recv")]
-        internal static partial string Recv(string baseUrl, string sessionId);
+        internal static partial string Recv(string baseUrl, string sessionId, string token);
 
         [JSImport("globalThis.sqlTunnelSync.deleteSession")]
-        internal static partial void DeleteSession(string baseUrl, string sessionId);
+        internal static partial void DeleteSession(string baseUrl, string sessionId, string token);
     }
 }
 
