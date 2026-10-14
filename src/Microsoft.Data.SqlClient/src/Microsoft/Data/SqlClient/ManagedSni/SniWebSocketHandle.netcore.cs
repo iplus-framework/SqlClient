@@ -227,13 +227,23 @@ namespace Microsoft.Data.SqlClient.ManagedSni
 
                 try
                 {
+                    // SNI target host must be a bare hostname. _tunnelUrl is a full
+                    // ws(s):// URL — Android's SSLStreamSetTargetHost (Interop+AndroidCrypto)
+                    // throws SslException for anything containing "://" (observed 2026-10-14:
+                    // "error during the pre-login handshake" on net10.0-android).
+                    string sslTargetHost = _hostNameInCertificate;
+                    if (String.IsNullOrEmpty(sslTargetHost))
+                    {
+                        try { sslTargetHost = new Uri(_tunnelUrl).DnsSafeHost; }
+                        catch { sslTargetHost = _tunnelUrl; }
+                    }
                     if (_tlsFirst)
                     {
-                        AuthenticateAsClient(_sslStream, _tunnelUrl, null);
+                        AuthenticateAsClient(_sslStream, sslTargetHost, null);
                     }
                     else
                     {
-                        _sslStream.AuthenticateAsClient(_tunnelUrl, null, s_supportedProtocols, false);
+                        _sslStream.AuthenticateAsClient(sslTargetHost, null, s_supportedProtocols, false);
                     }
                     if (_sslOverTdsStream is not null)
                     {

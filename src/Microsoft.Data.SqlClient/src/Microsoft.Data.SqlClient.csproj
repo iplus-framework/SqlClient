@@ -220,8 +220,12 @@
     </EmbeddedResource>
 
     <!-- Base strings in English -->
+    <!-- LogicalName MUST be "System.Strings.resources": Strings.Designer.cs creates
+         ResourceManager("System.Strings", ...) — a mismatched name makes every
+         SqlClient exception-message construction throw MissingManifestResourceException
+         (observed 2026-10-14 on Android: real SqlException masked by MMRE). -->
     <EmbeddedResource Update="Resources\Strings.resx">
-      <LogicalName>Microsoft.Data.SqlClient.Resources.Strings.resources</LogicalName>
+      <LogicalName>System.Strings.resources</LogicalName>
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
       <CustomToolNamespace>System</CustomToolNamespace>
@@ -229,7 +233,7 @@
 
     <!-- Include all strings that have been translated -->
     <EmbeddedResource Update="Resources\Strings.*.resx">
-      <LogicalName>Microsoft.Data.SqlClient.Resources.%(Filename).resources</LogicalName>
+      <LogicalName>System.%(Filename).resources</LogicalName>
     </EmbeddedResource>
 
     <!-- Strings designer that depends on the resx -->

@@ -17,7 +17,9 @@ namespace Microsoft.Data
 
         internal StringsHelper()
         {
-            _resources = new ResourceManager("Microsoft.Data.SqlClient.Resources.Strings", GetType().Assembly);
+            // Base name must match the EmbeddedResource LogicalName in the csproj
+            // ("System.Strings.resources") — the same resource Strings.Designer.cs uses.
+            _resources = new ResourceManager("System.Strings", GetType().Assembly);
         }
 
         private static StringsHelper GetLoader()
