@@ -401,6 +401,7 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                         try // catching SocketException with SocketErrorCode == WouldBlock to run Socket.Select
                         {
                             socket.Connect(ipAddress, port);
+
                             if (!isInfiniteTimeout)
                             {
                                 throw SQL.SocketDidNotThrow();

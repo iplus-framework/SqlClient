@@ -125,6 +125,16 @@ namespace Microsoft.Data.SqlClient.ManagedSni
         private static WebSocketStream CreateWebSocketTransport(TunnelAuthInfo tunnelAuth, TimeoutTimer timeout)
         {
             ClientWebSocket webSocket = new ClientWebSocket();
+            // Self-signed relay certificates (docs §9.28): when the deployment runs the
+            // relay with a certificate that is not in the OS trust store, the AppContext
+            // switch opts in to accepting it for the client-relay hop. The TDS session
+            // inside the tunnel remains end-to-end TLS to SQL Server.
+            if (tunnelAuth.BaseUrl.StartsWith("wss://", StringComparison.OrdinalIgnoreCase)
+                && LocalAppContextSwitches.AcceptUntrustedTunnelCertificates)
+            {
+                webSocket.Options.RemoteCertificateValidationCallback =
+                    (_, _, _, policyErrors) => true;
+            }
             // Stage 1: bearer token on the WebSocket handshake.
             if (tunnelAuth.HasToken)
             {

@@ -36,8 +36,8 @@ namespace Microsoft.Data.SqlClient.ManagedSni
     /// </summary>
     internal sealed class SyncHttpTunnelStream : Stream
     {
-        /// <summary>Must not exceed the relay's per-poll buffer (16 KB).</summary>
-        private const int MaxChunkSize = 16 * 1024;
+        /// <summary>Must not exceed the relay's per-poll buffer (64 KB, see PASqlTunnelHost.SyncSession).</summary>
+        private const int MaxChunkSize = 64 * 1024;
 
         private readonly string _baseUrl;
         private readonly TunnelAuthInfo _auth;
@@ -146,7 +146,6 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                     _readPos = 0;
                     Buffer.BlockCopy(chunk, n, _receiveBuffer, 0, _readLen);
                 }
-                Console.WriteLine($"SyncHttpTunnelStream: Read returning {n} of {chunk.Length} bytes (requested {count})");
                 return n;
             }
         }
@@ -160,7 +159,6 @@ namespace Microsoft.Data.SqlClient.ManagedSni
             }
 
             string base64 = Convert.ToBase64String(buffer, offset, count);
-            Console.WriteLine($"SyncHttpTunnelStream: Write {count} bytes");
             int status = SyncHttpTunnelJs.Send(_baseUrl, _sessionId, base64, _auth?.Token);
             if (status != 200)
             {

@@ -155,7 +155,16 @@ internal static class LocalAppContextSwitches
     /// </summary>
     private const string UseMinimumLoginTimeoutString =
         "Switch.Microsoft.Data.SqlClient.UseOneSecFloorInTimeoutCalculationDuringLogin";
-    
+
+    /// <summary>
+    /// The name of the app context switch that controls whether the WebSocket
+    /// tunnel transport (<c>wss://</c> Tunnel URL) accepts relay certificates that
+    /// fail chain validation (e.g. self-signed certificates). Intended for
+    /// deployments where the relay runs with a self-signed certificate that is
+    /// not installed in the OS trust store. Default false.
+    /// </summary>
+    private const string AcceptUntrustedTunnelCertificatesString =
+        "Switch.Microsoft.Data.SqlClient.AcceptUntrustedTunnelCertificates";
     #endregion
 
     #region Switch Values
@@ -269,6 +278,8 @@ internal static class LocalAppContextSwitches
     /// The cached value of the UseMinimumLoginTimeout switch.
     /// </summary>
     private static SwitchValue s_useMinimumLoginTimeout = SwitchValue.None;
+
+    private static SwitchValue s_acceptUntrustedTunnelCertificates = SwitchValue.None;
 
     #endregion
 
@@ -668,6 +679,18 @@ internal static class LocalAppContextSwitches
             UseMinimumLoginTimeoutString,
             defaultValue: true,
             ref s_useMinimumLoginTimeout);
+
+    /// <summary>
+    /// When true, a <c>wss://</c> tunnel transport accepts relay certificates that fail
+    /// chain validation (self-signed certificates). The TDS session inside the tunnel is
+    /// still end-to-end TLS to SQL Server, so this only relaxes the client-relay hop.
+    /// The default value of this switch is false.
+    /// </summary>
+    public static bool AcceptUntrustedTunnelCertificates =>
+        AcquireAndReturn(
+            AcceptUntrustedTunnelCertificatesString,
+            defaultValue: false,
+            ref s_acceptUntrustedTunnelCertificates);
 
     #endregion
 
