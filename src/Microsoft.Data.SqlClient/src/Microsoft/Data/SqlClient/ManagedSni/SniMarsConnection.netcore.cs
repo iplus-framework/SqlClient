@@ -84,10 +84,8 @@ namespace Microsoft.Data.SqlClient.ManagedSni
                 if (_lowerHandle.SupportsSynchronousReceive)
                 {
                     SqlClientEventSource.Log.TrySNITraceEvent(nameof(SniMarsConnection), EventType.INFO, "MARS Session Id {0}, synchronous transport: pull-based demux, no standing read.", args0: ConnectionId);
-                    Console.WriteLine($"SniMarsConnection.StartReceive: sync transport ({_lowerHandle.GetType().Name}) -> pull-based demux, no standing read.");
                     return TdsEnums.SNI_SUCCESS_IO_PENDING;
                 }
-                Console.WriteLine($"SniMarsConnection.StartReceive: async transport ({_lowerHandle.GetType().Name}) -> standing read.");
 
                 SniPacket packet = null;
 
